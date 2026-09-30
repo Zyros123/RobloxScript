@@ -1,14 +1,38 @@
--- Tiger Boxing Bot - Triggerbot / Autoshoot
--- Cuando apuntas a un enemigo, dispara automáticamente
+-- Tiger Boxing Bot - Triggerbot
+-- Arma = dispara | Cuchillo = lanza
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
+local Vim = game:GetService("VirtualInputManager")
 
 print("Loaded! | Tiger Boxing Triggerbot")
 
+local function hasWeapon()
+    local character = LocalPlayer.Character
+    if not character then return false end
+    return character:FindFirstChildOfClass("Tool") ~= nil
+end
+
+local function isKnife(tool)
+    if not tool then return false end
+    local name = tool.Name:lower()
+    return name:find("knife") or name:find("cuchillo") or name:find("blade")
+end
+
+local function throwKnife()
+    -- Presiona la tecla E para lanzar el cuchillo
+    Vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    task.wait(0.05)
+    Vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+end
+
 while true do
     task.wait(0.01)
+
+    if not hasWeapon() then
+        continue
+    end
 
     local target = Mouse.Target
     if target then
@@ -21,7 +45,13 @@ while true do
         end
 
         if humanoid and humanoid.Health > 0 and character ~= LocalPlayer.Character then
-            mouse1click()
+            local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            
+            if isKnife(tool) then
+                throwKnife() -- Lanza el cuchillo
+            else
+                mouse1click() -- Dispara el arma
+            end
         end
     end
 end
