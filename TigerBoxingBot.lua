@@ -15,14 +15,12 @@ while true do
         local character = target.Parent
         local humanoid = character:FindFirstChildOfClass("Humanoid")
 
-        -- A veces el Humanoid está un nivel más arriba
         if not humanoid and character.Parent then
             humanoid = character.Parent:FindFirstChildOfClass("Humanoid")
             character = character.Parent
         end
 
         if humanoid and humanoid.Health > 0 and character ~= LocalPlayer.Character then
-            -- Dispara automáticamente
             mouse1click()
         end
     end
