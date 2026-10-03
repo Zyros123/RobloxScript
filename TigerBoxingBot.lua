@@ -1,5 +1,6 @@
--- Tiger Boxing Bot - Versión Segura
--- Menos detección + sigue siendo preciso
+-- Tiger Boxing Bot - Solo Arma + No Aliados
+-- Cuchillo: NO auto clic (tú controlas)
+-- Arma: sí dispara solo a enemigos
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -9,22 +10,34 @@ local Camera = Workspace.CurrentCamera
 
 print("Loaded! | Tiger Boxing Triggerbot")
 
--- Config más segura (menos agresiva = menos kick)
 local HITBOX = 1.45
 local MAX_DIST = 200
 local DELAY = 0.09
 local lastFire = 0
 
-local function hasWeapon()
+local function getTool()
     local char = LocalPlayer.Character
-    if not char then return false end
-    return char:FindFirstChildOfClass("Tool") ~= nil
+    if not char then return nil end
+    return char:FindFirstChildOfClass("Tool")
 end
 
-local function isKnife(tool)
+local function isGun(tool)
     if not tool then return false end
     local n = string.lower(tool.Name)
-    return string.find(n, "knife") or string.find(n, "cuchillo") or string.find(n, "blade")
+    -- Cuchillo = no auto
+    if string.find(n, "knife") or string.find(n, "cuchillo") or string.find(n, "blade") or string.find(n, "machete") then
+        return false
+    end
+    return true
+end
+
+local function isEnemy(player)
+    if not player or player == LocalPlayer then return false end
+    -- No disparar a aliados
+    if LocalPlayer.Team and player.Team then
+        return player.Team ~= LocalPlayer.Team
+    end
+    return true
 end
 
 local function getTarget()
@@ -42,19 +55,22 @@ local function getTarget()
             model = model.Parent
         end
         if hum and hum.Health > 0 and model ~= char then
-            local root = model:FindFirstChild("HumanoidRootPart")
-            if root and (root.Position - myRoot.Position).Magnitude <= MAX_DIST then
-                return true
+            local plr = Players:GetPlayerFromCharacter(model)
+            if plr and isEnemy(plr) then
+                local root = model:FindFirstChild("HumanoidRootPart")
+                if root and (root.Position - myRoot.Position).Magnitude <= MAX_DIST then
+                    return true
+                end
             end
         end
     end
 
-    -- Hitbox extra suave
+    -- Hitbox extra (solo enemigos)
     local mousePos = Vector2.new(Mouse.X, Mouse.Y)
     local limit = 32 * HITBOX
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
+        if isEnemy(plr) and plr.Character then
             local enemy = plr.Character
             local hum = enemy:FindFirstChildOfClass("Humanoid")
             local root = enemy:FindFirstChild("HumanoidRootPart")
@@ -89,13 +105,17 @@ local function getTarget()
     return false
 end
 
--- Loop suave (menos detección)
+-- Solo ARMA + solo ENEMIGOS
 task.spawn(function()
     while true do
         task.wait(0.04)
-        if not hasWeapon() then
+
+        local tool = getTool()
+        -- Sin herramienta o es cuchillo → no hace nada
+        if not tool or not isGun(tool) then
             continue
         end
+
         if tick() - lastFire < DELAY then
             continue
         end
@@ -103,16 +123,7 @@ task.spawn(function()
         local success, result = pcall(getTarget)
         if success and result then
             lastFire = tick()
-            local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if isKnife(tool) then
-                pcall(function()
-                    keypress(0x45)
-                    task.wait(0.025)
-                    keyrelease(0x45)
-                end)
-            else
-                pcall(mouse1click)
-            end
+            pcall(mouse1click)
         end
     end
 end)
