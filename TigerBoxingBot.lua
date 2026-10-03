@@ -1,6 +1,6 @@
--- Tiger Boxing Bot - Solo Arma + No Aliados
--- Cuchillo: NO auto clic (tú controlas)
--- Arma: sí dispara solo a enemigos
+-- Tiger Boxing Bot
+-- SOLO arma de fuego + SOLO enemigos
+-- Cuchillo: NUNCA auto-clic
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -12,7 +12,7 @@ print("Loaded! | Tiger Boxing Triggerbot")
 
 local HITBOX = 1.45
 local MAX_DIST = 200
-local DELAY = 0.09
+local DELAY = 0.1
 local lastFire = 0
 
 local function getTool()
@@ -21,21 +21,34 @@ local function getTool()
     return char:FindFirstChildOfClass("Tool")
 end
 
+-- Solo true si es claramente un arma de fuego
 local function isGun(tool)
     if not tool then return false end
     local n = string.lower(tool.Name)
-    -- Cuchillo = no auto
-    if string.find(n, "knife") or string.find(n, "cuchillo") or string.find(n, "blade") or string.find(n, "machete") then
+
+    -- Cuchillo / melee → NUNCA
+    if string.find(n, "knife") or string.find(n, "cuchillo") or string.find(n, "blade")
+        or string.find(n, "machete") or string.find(n, "dagger") or string.find(n, "sword") then
         return false
     end
-    return true
+
+    -- Solo armas de fuego
+    if string.find(n, "gun") or string.find(n, "revolver") or string.find(n, "pistol")
+        or string.find(n, "rifle") or string.find(n, "shot") or string.find(n, "firearm") then
+        return true
+    end
+
+    -- Por defecto NO
+    return false
 end
 
 local function isEnemy(player)
     if not player or player == LocalPlayer then return false end
-    -- No disparar a aliados
     if LocalPlayer.Team and player.Team then
         return player.Team ~= LocalPlayer.Team
+    end
+    if LocalPlayer.TeamColor and player.TeamColor then
+        return player.TeamColor ~= LocalPlayer.TeamColor
     end
     return true
 end
@@ -45,7 +58,6 @@ local function getTarget()
     if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
     local myRoot = char.HumanoidRootPart
 
-    -- Target directo
     local ok, target = pcall(function() return Mouse.Target end)
     if ok and target then
         local model = target.Parent
@@ -65,7 +77,6 @@ local function getTarget()
         end
     end
 
-    -- Hitbox extra (solo enemigos)
     local mousePos = Vector2.new(Mouse.X, Mouse.Y)
     local limit = 32 * HITBOX
 
@@ -84,18 +95,14 @@ local function getTarget()
                 local sp, on = Camera:WorldToViewportPoint(root.Position)
                 if on then
                     local d = (mousePos - Vector2.new(sp.X, sp.Y)).Magnitude
-                    if d < limit then
-                        return true
-                    end
+                    if d < limit then return true end
                 end
 
                 if head then
                     local hp, hon = Camera:WorldToViewportPoint(head.Position)
                     if hon then
                         local d = (mousePos - Vector2.new(hp.X, hp.Y)).Magnitude
-                        if d < (26 * HITBOX) then
-                            return true
-                        end
+                        if d < (26 * HITBOX) then return true end
                     end
                 end
             end
@@ -105,14 +112,14 @@ local function getTarget()
     return false
 end
 
--- Solo ARMA + solo ENEMIGOS
 task.spawn(function()
     while true do
-        task.wait(0.04)
+        task.wait(0.05)
 
         local tool = getTool()
-        -- Sin herramienta o es cuchillo → no hace nada
-        if not tool or not isGun(tool) then
+
+        -- Solo si es arma de fuego real
+        if not isGun(tool) then
             continue
         end
 
