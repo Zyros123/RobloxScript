@@ -1,57 +1,80 @@
--- Tiger Boxing Bot - Triggerbot
--- Arma = dispara | Cuchillo = lanza
--- Solo funciona en ronda
+-- Tiger Boxing Bot - Preciso y más seguro
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
-local Vim = game:GetService("VirtualInputManager")
+local Camera = Workspace.CurrentCamera
 
 print("Loaded! | Tiger Boxing Triggerbot")
 
-local function hasWeapon()
-    local character = LocalPlayer.Character
-    if not character then return false end
-    return character:FindFirstChildOfClass("Tool") ~= nil
-end
+local HITBOX = 1.6
+local MAX_DIST = 280
+local DELAY = 0.07
+local lastFire = 0
 
-local function isKnife(tool)
-    if not tool then return false end
-    local name = tool.Name:lower()
-    return name:find("knife") or name:find("cuchillo") or name:find("blade")
-end
+local function getTarget()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    local myRoot = char.HumanoidRootPart
 
-local function throwKnife()
-    Vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-    task.wait(0.05)
-    Vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-end
-
-while true do
-    task.wait(0.01)
-
-    if not hasWeapon() then
-        continue
-    end
-
-    local target = Mouse.Target
-    if target then
-        local character = target.Parent
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-        if not humanoid and character.Parent then
-            humanoid = character.Parent:FindFirstChildOfClass("Humanoid")
-            character = character.Parent
+    local ok, target = pcall(function() return Mouse.Target end)
+    if ok and target then
+        local model = target.Parent
+        local hum = model and model:FindFirstChildOfClass("Humanoid")
+        if not hum and model and model.Parent then
+            hum = model.Parent:FindFirstChildOfClass("Humanoid")
+            model = model.Parent
         end
-
-        if humanoid and humanoid.Health > 0 and character ~= LocalPlayer.Character then
-            local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            
-            if isKnife(tool) then
-                throwKnife()
-            else
-                mouse1click()
+        if hum and hum.Health > 0 and model ~= char then
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if root and (root.Position - myRoot.Position).Magnitude <= MAX_DIST then
+                return true
             end
         end
     end
+
+    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    local limit = 36 * HITBOX
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local enemy = plr.Character
+            local hum = enemy:FindFirstChildOfClass("Humanoid")
+            local root = enemy:FindFirstChild("HumanoidRootPart")
+            local head = enemy:FindFirstChild("Head")
+
+            if hum and hum.Health > 0 and root then
+                if (root.Position - myRoot.Position).Magnitude <= MAX_DIST then
+                    local sp, on = Camera:WorldToViewportPoint(root.Position)
+                    if on then
+                        local d = (mousePos - Vector2.new(sp.X, sp.Y)).Magnitude
+                        if d < limit then return true end
+                    end
+                    if head then
+                        local hp, hon = Camera:WorldToViewportPoint(head.Position)
+                        if hon then
+                            local d = (mousePos - Vector2.new(hp.X, hp.Y)).Magnitude
+                            if d < (30 * HITBOX) then return true end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return false
 end
+
+task.spawn(function()
+    while true do
+        task.wait(0.04)
+        if tick() - lastFire >= DELAY then
+            local success, result = pcall(getTarget)
+            if success and result then
+                lastFire = tick()
+                pcall(mouse1click)
+            end
+        end
+    end
+end)
