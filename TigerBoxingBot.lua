@@ -1,8 +1,9 @@
 -- Tiger Boxing Bot
--- SOLO arma de fuego + SOLO enemigos
--- Cuchillo: NUNCA auto-clic
+-- Arma: dispara solo a enemigos
+-- Cuchillo: NO auto clic
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
@@ -10,36 +11,15 @@ local Camera = Workspace.CurrentCamera
 
 print("Loaded! | Tiger Boxing Triggerbot")
 
-local HITBOX = 1.45
-local MAX_DIST = 200
-local DELAY = 0.1
+local HITBOX_MULT = 1.7
+local MAX_DISTANCE = 300
+local FIRE_DELAY = 0.05
 local lastFire = 0
 
-local function getTool()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    return char:FindFirstChildOfClass("Tool")
-end
-
--- Solo true si es claramente un arma de fuego
-local function isGun(tool)
+local function isKnife(tool)
     if not tool then return false end
-    local n = string.lower(tool.Name)
-
-    -- Cuchillo / melee → NUNCA
-    if string.find(n, "knife") or string.find(n, "cuchillo") or string.find(n, "blade")
-        or string.find(n, "machete") or string.find(n, "dagger") or string.find(n, "sword") then
-        return false
-    end
-
-    -- Solo armas de fuego
-    if string.find(n, "gun") or string.find(n, "revolver") or string.find(n, "pistol")
-        or string.find(n, "rifle") or string.find(n, "shot") or string.find(n, "firearm") then
-        return true
-    end
-
-    -- Por defecto NO
-    return false
+    local name = string.lower(tool.Name)
+    return string.find(name, "knife") or string.find(name, "cuchillo") or string.find(name, "blade") or string.find(name, "machete")
 end
 
 local function isEnemy(player)
@@ -53,56 +33,58 @@ local function isEnemy(player)
     return true
 end
 
-local function getTarget()
+local function getEnemyUnderCrosshair()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
     local myRoot = char.HumanoidRootPart
 
-    local ok, target = pcall(function() return Mouse.Target end)
-    if ok and target then
+    local target = Mouse.Target
+    if target then
         local model = target.Parent
-        local hum = model and model:FindFirstChildOfClass("Humanoid")
-        if not hum and model and model.Parent then
-            hum = model.Parent:FindFirstChildOfClass("Humanoid")
+        local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+        if not humanoid and model and model.Parent then
+            humanoid = model.Parent:FindFirstChildOfClass("Humanoid")
             model = model.Parent
         end
-        if hum and hum.Health > 0 and model ~= char then
+        if humanoid and humanoid.Health > 0 and model ~= char then
             local plr = Players:GetPlayerFromCharacter(model)
             if plr and isEnemy(plr) then
                 local root = model:FindFirstChild("HumanoidRootPart")
-                if root and (root.Position - myRoot.Position).Magnitude <= MAX_DIST then
+                if root and (root.Position - myRoot.Position).Magnitude <= MAX_DISTANCE then
                     return true
                 end
             end
         end
     end
 
-    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
-    local limit = 32 * HITBOX
+    local mouseScreen = Vector2.new(Mouse.X, Mouse.Y)
+    local bestDist = 38 * HITBOX_MULT
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if isEnemy(plr) and plr.Character then
-            local enemy = plr.Character
-            local hum = enemy:FindFirstChildOfClass("Humanoid")
+    for _, player in pairs(Players:GetPlayers()) do
+        if isEnemy(player) and player.Character then
+            local enemy = player.Character
+            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
             local root = enemy:FindFirstChild("HumanoidRootPart")
             local head = enemy:FindFirstChild("Head")
 
-            if hum and hum.Health > 0 and root then
-                if (root.Position - myRoot.Position).Magnitude > MAX_DIST then
-                    continue
-                end
-
-                local sp, on = Camera:WorldToViewportPoint(root.Position)
-                if on then
-                    local d = (mousePos - Vector2.new(sp.X, sp.Y)).Magnitude
-                    if d < limit then return true end
-                end
-
-                if head then
-                    local hp, hon = Camera:WorldToViewportPoint(head.Position)
-                    if hon then
-                        local d = (mousePos - Vector2.new(hp.X, hp.Y)).Magnitude
-                        if d < (26 * HITBOX) then return true end
+            if humanoid and humanoid.Health > 0 and root then
+                local distToMe = (root.Position - myRoot.Position).Magnitude
+                if distToMe <= MAX_DISTANCE then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
+                        local d = (mouseScreen - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if d < bestDist then
+                            return true
+                        end
+                    end
+                    if head then
+                        local headPos, headOn = Camera:WorldToViewportPoint(head.Position)
+                        if headOn then
+                            local d = (mouseScreen - Vector2.new(headPos.X, headPos.Y)).Magnitude
+                            if d < (32 * HITBOX_MULT) then
+                                return true
+                            end
+                        end
                     end
                 end
             end
@@ -112,25 +94,20 @@ local function getTarget()
     return false
 end
 
-task.spawn(function()
-    while true do
-        task.wait(0.05)
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
 
-        local tool = getTool()
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
 
-        -- Solo si es arma de fuego real
-        if not isGun(tool) then
-            continue
-        end
+    -- Si es cuchillo → NO hacer nada
+    if isKnife(tool) then return end
 
-        if tick() - lastFire < DELAY then
-            continue
-        end
+    if tick() - lastFire < FIRE_DELAY then return end
 
-        local success, result = pcall(getTarget)
-        if success and result then
-            lastFire = tick()
-            pcall(mouse1click)
-        end
+    if getEnemyUnderCrosshair() then
+        lastFire = tick()
+        pcall(mouse1click)
     end
 end)
