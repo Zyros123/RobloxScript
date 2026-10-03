@@ -1,5 +1,5 @@
 -- Tiger Boxing Bot
--- Arma: dispara solo a enemigos
+-- Arma: dispara al apuntar
 -- Cuchillo: NO auto clic
 
 local Players = game:GetService("Players")
@@ -13,24 +13,13 @@ print("Loaded! | Tiger Boxing Triggerbot")
 
 local HITBOX_MULT = 1.7
 local MAX_DISTANCE = 300
-local FIRE_DELAY = 0.05
+local FIRE_DELAY = 0.04
 local lastFire = 0
 
 local function isKnife(tool)
     if not tool then return false end
     local name = string.lower(tool.Name)
     return string.find(name, "knife") or string.find(name, "cuchillo") or string.find(name, "blade") or string.find(name, "machete")
-end
-
-local function isEnemy(player)
-    if not player or player == LocalPlayer then return false end
-    if LocalPlayer.Team and player.Team then
-        return player.Team ~= LocalPlayer.Team
-    end
-    if LocalPlayer.TeamColor and player.TeamColor then
-        return player.TeamColor ~= LocalPlayer.TeamColor
-    end
-    return true
 end
 
 local function getEnemyUnderCrosshair()
@@ -47,12 +36,9 @@ local function getEnemyUnderCrosshair()
             model = model.Parent
         end
         if humanoid and humanoid.Health > 0 and model ~= char then
-            local plr = Players:GetPlayerFromCharacter(model)
-            if plr and isEnemy(plr) then
-                local root = model:FindFirstChild("HumanoidRootPart")
-                if root and (root.Position - myRoot.Position).Magnitude <= MAX_DISTANCE then
-                    return true
-                end
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if root and (root.Position - myRoot.Position).Magnitude <= MAX_DISTANCE then
+                return true
             end
         end
     end
@@ -61,7 +47,7 @@ local function getEnemyUnderCrosshair()
     local bestDist = 38 * HITBOX_MULT
 
     for _, player in pairs(Players:GetPlayers()) do
-        if isEnemy(player) and player.Character then
+        if player ~= LocalPlayer and player.Character then
             local enemy = player.Character
             local humanoid = enemy:FindFirstChildOfClass("Humanoid")
             local root = enemy:FindFirstChild("HumanoidRootPart")
@@ -101,7 +87,7 @@ RunService.RenderStepped:Connect(function()
     local tool = char:FindFirstChildOfClass("Tool")
     if not tool then return end
 
-    -- Si es cuchillo → NO hacer nada
+    -- Cuchillo: no auto clic
     if isKnife(tool) then return end
 
     if tick() - lastFire < FIRE_DELAY then return end
