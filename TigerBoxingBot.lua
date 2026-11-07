@@ -1,11 +1,11 @@
 loadstring([[
--- Tiger Bot Duels (simple, anti-kick)
+-- Tiger Bot Duels (rapido + preciso, anti-kick)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
-local DELAY = 0.18
+local DELAY = 0.08
 local lastFire = 0
 
 print("Loaded! | Tiger Bot")
@@ -25,7 +25,7 @@ local function isKnife(tool)
 end
 
 while true do
-    task.wait(0.1 + math.random() * 0.05)
+    task.wait(0.04)
 
     if tick() - lastFire >= DELAY then
         local char = LocalPlayer.Character
